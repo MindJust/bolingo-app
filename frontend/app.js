@@ -29,12 +29,17 @@ function checkFormCompletion() {
 tg.onEvent('mainButtonClicked', async () => {
     tg.MainButton.showProgress(true).disable();
     try {
+        // La donnée d'initialisation de Telegram est la clé de la sécurité
+        if (!tg.initData) {
+            tg.showAlert('Erreur: Impossible de vérifier votre identité. Veuillez redémarrer le bot.');
+            return;
+        }
+
         const response = await fetch('/api/generate-description', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // LA LIGNE DE SÉCURITÉ CRUCIALE
-                'Authorization': `tma ${tg.initData}`
+                'Authorization': `tma ${tg.initData}` // Envoi de la preuve
             },
             body: JSON.stringify(userChoices),
         });
