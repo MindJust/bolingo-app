@@ -1,7 +1,6 @@
 import os
 import logging
 from fastapi import FastAPI, Request, HTTPException
-from contextlib import asynccontextmanager
 from telegram import Update
 from telegram.ext import Application
 from bot_logic import setup_bot_application
@@ -13,61 +12,54 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- Gestion du Cycle de Vie de l'Application ---
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """
-    Gère les actions de démarrage et d'arrêt.
-    C'est la méthode moderne pour les événements startup/shutdown dans FastAPI.
-    """
-    logger.info("Démarrage du service...")
-    # Initialisation du bot
-    try:
-        bot_app = setup_bot_application()
-        await bot_app.initialize()
-        
-        # Stocker l'instance du bot dans l'état de l'application FastAPI
-        app.state.bot_app = bot_app
-        logger.info("Application bot initialisée avec succès.")
-        
-        # Le "yield" est le moment où l'application est en cours d'exécution
-        yield
-        
-    finally:
-        # Code exécuté à l'arrêt
-        if hasattr(app.state, 'bot_app'):
-            logger.info("Arrêt du service...")
-            await app.state.bot_app.shutdown()
-            logger.info("Application bot arrêtée proprement.")
-
-
-# Crée l'application FastAPI avec le cycle de vie géré
-app = FastAPI(lifespan=lifespan)
-
+# --- Initialisation ---
+# Le bot est initialisé une seule fois au chargement du module.
+try:
+    application = setup_bot_application()
+    app = FastAPI()
+except ValueError as e:
+    logger.critical(e)
+    # Empêche le démarrage si le token est manquant.
+    application = None
+    app = None
 
 # --- Endpoints de l'API ---
 
 @app.get("/")
 async def root():
-    """Endpoint racine pour vérifier que le serveur est en ligne."""
+    """Endpoint racine pour la vérification de santé de Render."""
     return {"status": "Bolingo Backend is running!"}
 
 @app.post("/webhook")
 async def webhook(request: Request):
-    """
-    Endpoint qui reçoit les mises à jour de Telegram.
-    """
-    bot_app = request.app.state.bot_app
-    if not bot_app:
-        logger.error("L'application bot n'est pas disponible dans l'état de l'application.")
+    """Endpoint qui reçoit les mises à jour de Telegram."""
+    if not application:
+        logger.error("L'application bot n'est pas initialisée.")
         raise HTTPException(status_code=503, detail="Bot service unavailable")
-
     try:
         body = await request.json()
-        update = Update.de_json(body, bot_app.bot)
-        await bot_app.process_update(update)
+        update = Update.de_json(body, application.bot)
+        await application.process_update(update)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Erreur lors du traitement du webhook : {e}", exc_info=True)
         return {"status": "error"}
+
+@app.get("/setup_webhook")
+async def setup_webhook():
+    """Endpoint manuel et secret pour configurer le webhook."""
+    webhook_url = os.getenv("RENDER_EXTERNAL_URL")
+    if not webhook_url:
+        logger.error("RENDER_EXTERNAL_URL n'est pas définie.")
+        return {"status": "error", "message": "URL de Render non trouvée"}
+    
+    try:
+        await application.bot.set_webhook(
+            url=f"{webhook_url}/webhook",
+            allowed_updates=Update.ALL_TYPES
+        )
+        logger.info(f"Webhook configuré avec succès sur {webhook_url}/webhook")
+        return {"status": "ok", "message": f"Webhook configuré sur {webhook_url}/webhook"}
+    except Exception as e:
+        logger.error(f"Erreur lors de la configuration du webhook : {e}")
+        return {"status": "error", "message": str(e)}
