@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-# --- Logique du Bot (Anciennement bot_logic.py) ---
+# --- Logique du Bot (RESTAURÉE) ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     welcome_text = "Salut ! 👋 Prêt(e) pour Bolingo ? Ici, c'est pour des rencontres sérieuses et dans le respect. On y va ?"
@@ -45,18 +45,26 @@ async def accept_charte_handler(query):
         await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée.")
         return
     
-    # --- LA CORRECTION EST ICI ---
     # On ajoute un paramètre de version pour forcer le rechargement
-    webapp_url_with_version = f"{base_url}?v=2.0"
+    webapp_url_with_version = f"{base_url}?v=2.1" # J'incrémente la version
     
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
     keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text=text, reply_markup=reply_markup)
 
-# Le reste du fichier est identique...
+def setup_bot_application():
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
+        logger.critical("ERREUR CRITIQUE: TELEGRAM_BOT_TOKEN n'est pas défini.")
+        raise ValueError("Le token Telegram n'est pas défini.")
+    application = Application.builder().token(token).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
+    return application
 
-# --- Gestion du Cycle de Vie et de l'Application FastAPI (Anciennement main.py) ---
+
+# --- Gestion du Cycle de Vie et de l'Application FastAPI ---
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
