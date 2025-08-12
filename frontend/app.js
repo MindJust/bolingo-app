@@ -11,8 +11,9 @@ let currentStep = 1;
 const userChoices = { vibe: null, weekend: null, valeurs: null, plaisir: null };
 const secretAnswers = { energie: null, decision: null, conflit: null, ressources: null, focus: null };
 
-// FONCTION POUR SAUVEGARDER LA PROGRESSION
+// FONCTION DE SAUVEGARDE
 async function saveProgress(step) {
+    if (!tg.initData) return;
     try {
         await fetch('/api/update-profile', {
             method: 'POST',
@@ -24,6 +25,7 @@ async function saveProgress(step) {
     }
 }
 
+// Logique des boutons et de l'affichage...
 allOptionButtons.forEach(button => {
     button.addEventListener('click', () => {
         const group = button.dataset.group;
@@ -50,25 +52,37 @@ function checkCurrentFormCompletion() {
 tg.onEvent('mainButtonClicked', async () => {
     if (currentStep === 1) {
         tg.MainButton.showProgress(true).disable();
-        // On déclenche la génération de description
         fetch('/api/generate-description', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `tma ${tg.initData}` },
             body: JSON.stringify(userChoices),
         });
+        await saveProgress('builder_done');
 
-        // On passe à l'étape suivante
         currentStep = 2;
         profileBuilder.style.display = 'none';
         secretQuestions.style.display = 'block';
-        tg.MainButton.hide().hideProgress().enable();
-        tg.showPopup({ title: 'Parfait !', message: 'Ta description arrive par message. Finis ton profil pendant ce temps.', buttons: [{ type: 'ok' }] });
+        tg.MainButton.setText('Terminer plus tard').hideProgress().enable();
+        tg.MainButton.show(); // On le remontre tout de suite
     } else if (currentStep === 2) {
-        // L'utilisateur a fini, on sauvegarde et on ferme
         await saveProgress('completed');
         tg.showAlert('Félicitations ! Ton profil est complet.');
         tg.close();
     }
 });
 
-closeBtn.addEventListener('click', (e) => { e.preventDefault(); tg.close(); });
+// Le bouton "Terminer plus tard" sauvegarde la progression
+closeBtn.addEventListener('click', async (e) => { 
+    e.preventDefault(); 
+    await saveProgress('onboarding_incomplet');
+    tg.close(); 
+});
+
+// Quand la webapp se ferme, on sauvegarde aussi
+tg.onEvent('viewportChanged', async (event) => {
+    if (!event.isStateStable) {
+        if(currentStep === 2 && !Object.values(secretAnswers).every(a => a !== null)) {
+            await saveProgress('onboarding_incomplet');
+        }
+    }
+});
