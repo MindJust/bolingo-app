@@ -44,11 +44,11 @@ async def accept_charte_handler(query):
         await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée.")
         return
     
-    # URL PROPRE ET SANS AMBIGUÏTÉ
-    webapp_url = f"{base_url}/app/"
+    # L'URL pointe maintenant vers la racine, où se trouve notre app.
+    webapp_url_with_version = f"{base_url}?v=3.0" # J'incrémente la version
     
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
-    keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url))]]
+    keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text=text, reply_markup=reply_markup)
 
@@ -90,6 +90,6 @@ async def webhook(request: Request):
     await bot_app.process_update(update)
     return Response(status_code=200)
 
-# --- Servir le Frontend (LA MANIÈRE PROPRE) ---
-# Le Health Check pointe maintenant vers la racine, qui sert le frontend.
+# --- Servir le Frontend ---
+# Le Health Check de Render utilisera cette route racine.
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
