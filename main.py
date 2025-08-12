@@ -10,7 +10,6 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-
 # --- Logique du Bot ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -44,8 +43,7 @@ async def accept_charte_handler(query):
         await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée.")
         return
     
-    # L'URL pointe maintenant vers la racine, où se trouve notre app.
-    webapp_url_with_version = f"{base_url}?v=3.0" # J'incrémente la version
+    webapp_url_with_version = f"{base_url}?v=final" # Version finale pour vider le cache
     
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
     keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
@@ -61,7 +59,6 @@ def setup_bot_application():
     application.add_handler(CallbackQueryHandler(button_handler))
     return application
 
-
 # --- Gestion du Cycle de Vie et de l'Application FastAPI ---
 
 @asynccontextmanager
@@ -71,8 +68,9 @@ async def lifespan(app: FastAPI):
     await bot_app.initialize()
     webhook_url = os.getenv("RENDER_EXTERNAL_URL")
     if webhook_url:
-        await bot_app.bot.set_webhook(url=f"{webhook_url}/webhook", allowed_updates=Update.ALL_TYPES)
-        logger.info(f"Webhook configuré sur {webhook_url}/webhook")
+        full_webhook_url = f"{webhook_url}/api/webhook"
+        await bot_app.bot.set_webhook(url=full_webhook_url, allowed_updates=Update.ALL_TYPES)
+        logger.info(f"Webhook configuré sur {full_webhook_url}")
     app.state.bot_app = bot_app
     yield
     logger.info("Arrêt du service...")
@@ -81,15 +79,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# --- Endpoints ---
+# --- Endpoints API (Déclarés AVANT les fichiers statiques) ---
 
-@app.post("/webhook")
+@app.post("/api/webhook")
 async def webhook(request: Request):
     bot_app = request.app.state.bot_app
     update = Update.de_json(await request.json(), bot_app.bot)
     await bot_app.process_update(update)
     return Response(status_code=200)
 
-# --- Servir le Frontend ---
-# Le Health Check de Render utilisera cette route racine.
+# --- Servir le Frontend (Déclaré EN DERNIER) ---
+# La racine "/" sert maintenant de Health Check pour Render ET de point d'entrée pour la Web App.
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
