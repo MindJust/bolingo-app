@@ -2,6 +2,7 @@ import os
 import logging
 from fastapi import FastAPI, Request, HTTPException
 from bot_logic import setup_bot_application
+from telegram import Update
 from telegram.ext import Application
 
 # Configuration du logging
@@ -41,7 +42,13 @@ async def webhook(request: Request):
 
     try:
         body = await request.json()
-        await application.update_queue.put(body)
+        
+        # Créer un objet Update à partir du corps de la requête
+        update = Update.de_json(body, application.bot)
+        
+        # Traiter l'update directement au lieu de le mettre en file d'attente
+        await application.process_update(update)
+        
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Erreur lors du traitement du webhook : {e}")
