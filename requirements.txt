@@ -4,8 +4,7 @@ gunicorn
 python-telegram-bot
 pydantic
 apscheduler
-asyncpg
 google-generativeai
 python-dotenv
-uvloop
 sqlalchemy
+asyncpg
