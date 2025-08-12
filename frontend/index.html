@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bolingo - Crée ton Profil</title>
-    <link rel="stylesheet" href="style.css?v=2.0">
+    <!-- On incrémente la version pour forcer le rechargement du cache -->
+    <link rel="stylesheet" href="style.css?v=3.0">
 </head>
 <body>
     <div id="app">
@@ -12,8 +13,8 @@
         <div id="profile-builder">
             <h2>Crée ton Profil en 4 clics ✨</h2>
             <p>Réponds à ces questions pour que notre IA puisse créer une description unique pour toi.</p>
+            
             <form id="builder-form">
-                <!-- Les 4 questions du builder restent ici, inchangées -->
                 <div class="form-group">
                     <label>Comment te décrirais-tu ?</label>
                     <div class="options">
@@ -23,6 +24,7 @@
                         <button type="button" class="option-btn" data-group="vibe" data-value="Drôle et léger(e)">Drôle et léger(e)</button>
                     </div>
                 </div>
+
                 <div class="form-group">
                     <label>Ton week-end idéal, c'est plutôt...</label>
                     <div class="options">
@@ -32,6 +34,7 @@
                         <button type="button" class="option-btn" data-group="weekend" data-value="Sport ou nature">Sport ou nature</button>
                     </div>
                 </div>
+
                 <div class="form-group">
                     <label>Dans la vie, tu recherches avant tout...</label>
                     <div class="options">
@@ -41,6 +44,7 @@
                         <button type="button" class="option-btn" data-group="valeurs" data-value="La passion et l'aventure">La passion et l'aventure</button>
                     </div>
                 </div>
+                
                 <div class="form-group">
                     <label>Quelle est ta petite faiblesse ?</label>
                     <div class="options">
@@ -54,7 +58,7 @@
         </div>
 
         <!-- ÉCRAN 2 : QUESTIONS SECRÈTES (caché par défaut) -->
-        <div id="secret-questions">
+        <div id="secret-questions" style="display: none;">
             <h2>Dernière étape 🤫</h2>
             <p>Ces réponses resteront secrètes et ne serviront qu'à notre algorithme pour te trouver les meilleurs profils.</p>
 
@@ -95,10 +99,14 @@
                     </div>
                 </div>
             </form>
+            
+            <div class="footer-link">
+                <a href="#" id="close-btn">Terminer plus tard</a>
+            </div>
         </div>
     </div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="app.js?v=final_stable"></script> <!-- J'incrémente la version -->
+    <script src="app.js?v=3.0"></script> <!-- On incrémente la version -->
 </body>
 </html>
