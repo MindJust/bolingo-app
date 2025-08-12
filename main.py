@@ -3,20 +3,55 @@ import logging
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from pydantic import BaseModel # Importé pour définir la structure des données
+from pydantic import BaseModel
 from telegram import Update, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+import google.generativeai as genai
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Modèles de Données (pour l'API) ---
+# --- Modèles de Données ---
 class ProfileChoices(BaseModel):
     vibe: str
     weekend: str
     valeurs: str
     plaisir: str
+
+# --- Logique de l'IA (NOUVEAU) ---
+def generate_ai_description(choices: ProfileChoices) -> str:
+    """
+    Construit le prompt et appelle l'API Gemini pour générer une description.
+    """
+    try:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            logger.error("Clé API Google non trouvée.")
+            return "Erreur : la configuration de l'IA est manquante."
+        
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        prompt = (
+            "Tu es Bolingo, un assistant de rencontre bienveillant et doué avec les mots. "
+            "Ta mission est de rédiger une description de profil courte (2-3 phrases), sincère et positive à partir des choix d'un utilisateur. "
+            "Le ton doit être simple, accessible et encourageant. Adresse-toi à la personne qui lira le profil.\n\n"
+            "Voici les choix de l'utilisateur :\n"
+            f"- Vibe générale : {choices.vibe}\n"
+            f"- Temps libre : {choices.weekend}\n"
+            f"- Valeurs : {choices.valeurs}\n"
+            f"- Petit plaisir : {choices.plaisir}\n\n"
+            "Rédige la description. Termine par une petite phrase d'ouverture invitant à la discussion."
+        )
+
+        response = model.generate_content(prompt)
+        return response.text.strip()
+
+    except Exception as e:
+        logger.error(f"Erreur lors de la génération de la description par l'IA : {e}")
+        return "Je suis une personne intéressante qui cherche à faire de belles rencontres. N'hésitez pas à me contacter."
+
 
 # --- Logique du Bot ---
 # (Toute la logique du bot reste identique, de 'async def start' à 'def setup_bot_application')
@@ -51,7 +86,7 @@ async def accept_charte_handler(query):
         await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée.")
         return
     
-    webapp_url_with_version = f"{base_url}?v=final" # Version finale pour vider le cache
+    webapp_url_with_version = f"{base_url}?v=final"
     
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
     keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
@@ -67,7 +102,8 @@ def setup_bot_application():
     application.add_handler(CallbackQueryHandler(button_handler))
     return application
 
-# --- Gestion du Cycle de Vie et de l'Application FastAPI ---
+
+# --- Gestion du Cycle de Vie ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # (Le contenu de lifespan reste identique)
@@ -96,17 +132,11 @@ async def webhook(request: Request):
     await bot_app.process_update(update)
     return Response(status_code=200)
 
-# --- NOUVELLE SECTION : API POUR LA WEB APP ---
 @app.post("/api/generate-description")
-async def generate_description(choices: ProfileChoices):
-    # Pour l'instant, on ne fait que recevoir les choix et les afficher dans les logs
-    # pour prouver que la connexion fonctionne.
-    logger.info(f"Reçu les choix du Profile Builder : {choices.dict()}")
-    
-    # Plus tard, nous appellerons l'API Gemini ici.
-    
-    # On renvoie une fausse description pour le test.
-    return {"description": f"Ceci est une description générée pour quelqu'un de {choices.vibe} qui aime les week-ends {choices.weekend}."}
+async def generate_description_api(choices: ProfileChoices):
+    # On appelle maintenant notre nouvelle fonction IA
+    description = generate_ai_description(choices)
+    return {"description": description}
 
 # --- Servir le Frontend ---
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
