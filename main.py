@@ -2,6 +2,7 @@ import os
 import logging
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware # NOUVEL IMPORT
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from telegram import Update, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
@@ -19,20 +20,16 @@ class ProfileChoices(BaseModel):
     valeurs: str
     plaisir: str
 
-# --- Logique de l'IA (NOUVEAU) ---
+# --- Logique de l'IA ---
 def generate_ai_description(choices: ProfileChoices) -> str:
-    """
-    Construit le prompt et appelle l'API Gemini pour générer une description.
-    """
+    # (Le contenu de cette fonction ne change pas)
     try:
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             logger.error("Clé API Google non trouvée.")
             return "Erreur : la configuration de l'IA est manquante."
-        
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
-
         prompt = (
             "Tu es Bolingo, un assistant de rencontre bienveillant et doué avec les mots. "
             "Ta mission est de rédiger une description de profil courte (2-3 phrases), sincère et positive à partir des choix d'un utilisateur. "
@@ -44,17 +41,14 @@ def generate_ai_description(choices: ProfileChoices) -> str:
             f"- Petit plaisir : {choices.plaisir}\n\n"
             "Rédige la description. Termine par une petite phrase d'ouverture invitant à la discussion."
         )
-
         response = model.generate_content(prompt)
         return response.text.strip()
-
     except Exception as e:
         logger.error(f"Erreur lors de la génération de la description par l'IA : {e}")
         return "Je suis une personne intéressante qui cherche à faire de belles rencontres. N'hésitez pas à me contacter."
 
-
 # --- Logique du Bot ---
-# (Toute la logique du bot reste identique, de 'async def start' à 'def setup_bot_application')
+# (Toute la logique du bot reste identique)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     welcome_text = "Salut ! 👋 Prêt(e) pour Bolingo ? Ici, c'est pour des rencontres sérieuses et dans le respect. On y va ?"
     keyboard = [[InlineKeyboardButton("✅ Oui, on y va !", callback_data="show_charte")]]
@@ -102,7 +96,6 @@ def setup_bot_application():
     application.add_handler(CallbackQueryHandler(button_handler))
     return application
 
-
 # --- Gestion du Cycle de Vie ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -123,10 +116,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# --- Endpoints API ---
+# --- CONFIGURATION DU CORS (LE PORTIER) ---
+# On autorise notre propre application à nous parler
+origins = [
+    os.getenv("RENDER_EXTERNAL_URL", "*") # Autorise l'URL de notre site
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Autorise toutes les méthodes (GET, POST, etc.)
+    allow_headers=["*"], # Autorise tous les en-têtes
+)
 
+# --- Endpoints API ---
 @app.post("/api/webhook")
 async def webhook(request: Request):
+    # (Le contenu reste identique)
     bot_app = request.app.state.bot_app
     update = Update.de_json(await request.json(), bot_app.bot)
     await bot_app.process_update(update)
@@ -134,7 +140,7 @@ async def webhook(request: Request):
 
 @app.post("/api/generate-description")
 async def generate_description_api(choices: ProfileChoices):
-    # On appelle maintenant notre nouvelle fonction IA
+    # (Le contenu reste identique)
     description = generate_ai_description(choices)
     return {"description": description}
 
