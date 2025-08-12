@@ -76,3 +76,19 @@ body {
     color: var(--button-text-color);
     border-color: var(--button-color);
 }
+
+#secret-questions {
+    display: none; /* Caché par défaut */
+}
+
+#secret-questions h2 {
+    text-align: center;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+#secret-questions p {
+    text-align: center;
+    color: var(--hint-color);
+    margin-bottom: 30px;
+}
