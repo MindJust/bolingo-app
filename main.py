@@ -22,7 +22,6 @@ class ProfileChoices(BaseModel):
 
 # --- Logique de l'IA ---
 def generate_ai_description(choices: ProfileChoices) -> str:
-    # (Le contenu de cette fonction ne change pas)
     try:
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
@@ -48,7 +47,6 @@ def generate_ai_description(choices: ProfileChoices) -> str:
         return "Je suis une personne intéressante qui cherche à faire de belles rencontres. N'hésitez pas à me contacter."
 
 # --- Logique du Bot ---
-# (Toute la logique du bot reste identique)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     welcome_text = "Salut ! 👋 Prêt(e) pour Bolingo ? Ici, c'est pour des rencontres sérieuses et dans le respect. On y va ?"
     keyboard = [[InlineKeyboardButton("✅ Oui, on y va !", callback_data="show_charte")]]
@@ -99,7 +97,6 @@ def setup_bot_application():
 # --- Gestion du Cycle de Vie ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # (Le contenu de lifespan reste identique)
     logger.info("Démarrage du service...")
     bot_app = setup_bot_application()
     await bot_app.initialize()
@@ -116,23 +113,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# --- CONFIGURATION DU CORS (LE PORTIER) ---
-# On autorise notre propre application à nous parler
-origins = [
-    os.getenv("RENDER_EXTERNAL_URL", "*") # Autorise l'URL de notre site
-]
+# --- CONFIGURATION DU CORS (LA VERSION QUI DOIT MARCHER) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"], # Autorise toutes les méthodes (GET, POST, etc.)
-    allow_headers=["*"], # Autorise tous les en-têtes
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- Endpoints API ---
 @app.post("/api/webhook")
 async def webhook(request: Request):
-    # (Le contenu reste identique)
     bot_app = request.app.state.bot_app
     update = Update.de_json(await request.json(), bot_app.bot)
     await bot_app.process_update(update)
@@ -140,7 +132,6 @@ async def webhook(request: Request):
 
 @app.post("/api/generate-description")
 async def generate_description_api(choices: ProfileChoices):
-    # (Le contenu reste identique)
     description = generate_ai_description(choices)
     return {"description": description}
 
