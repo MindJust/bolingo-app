@@ -3,18 +3,60 @@
 <head>
     <meta charset="UTF-M">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolingo - Profil</title>
+    <title>Bolingo - Crée ton Profil</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="app">
-        <h1>Création de Profil</h1>
-        <p>Bienvenue sur l'interface de création de profil de Bolingo. Bientôt, vous pourrez remplir vos informations ici.</p>
+        <div id="profile-builder">
+            <h2>Crée ton Profil en 4 clics ✨</h2>
+            <p>Réponds à ces questions pour que notre IA puisse créer une description unique pour toi.</p>
+            
+            <form id="builder-form">
+                <div class="form-group">
+                    <label>Comment te décrirais-tu ?</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="vibe" data-value="Calme et posé(e)">Calme et posé(e)</button>
+                        <button type="button" class="option-btn" data-group="vibe" data-value="Sociable et ouvert(e)">Sociable et ouvert(e)</button>
+                        <button type="button" class="option-btn" data-group="vibe" data-value="Ambitieux(se) et déterminé(e)">Ambitieux(se) et déterminé(e)</button>
+                        <button type="button" class="option-btn" data-group="vibe" data-value="Drôle et léger(e)">Drôle et léger(e)</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Ton week-end idéal, c'est plutôt...</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="weekend" data-value="Tranquille à la maison">Tranquille à la maison</button>
+                        <button type="button" class="option-btn" data-group="weekend" data-value="Sorties entre amis">Sorties entre amis</button>
+                        <button type="button" class="option-btn" data-group="weekend" data-value="Avec la famille">Avec la famille</button>
+                        <button type="button" class="option-btn" data-group="weekend" data-value="Sport ou nature">Sport ou nature</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Dans la vie, tu recherches avant tout...</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="valeurs" data-value="La complicité et le partage">La complicité et le partage</button>
+                        <button type="button" class="option-btn" data-group="valeurs" data-value="Le rire et la bonne humeur">Le rire et la bonne humeur</button>
+                        <button type="button" class="option-btn" data-group="valeurs" data-value="Le soutien pour grandir ensemble">Le soutien pour grandir ensemble</button>
+                        <button type="button" class="option-btn" data-group="valeurs" data-value="La passion et l'aventure">La passion et l'aventure</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Quelle est ta petite faiblesse ?</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="plaisir" data-value="Un bon plat local">Un bon plat local</button>
+                        <button type="button" class="option-btn" data-group="plaisir" data-value="Une série jusqu'à pas d'heure">Une série jusqu'à pas d'heure</button>
+                        <button type="button" class="option-btn" data-group="plaisir" data-value="La musique à fond">La musique à fond</button>
+                        <button type="button" class="option-btn" data-group="plaisir" data-value="Une bonne sieste">Une bonne sieste</button>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
 
-    <!-- On charge le script de Telegram pour interagir avec l'app -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- On charge notre propre script pour la logique de l'app -->
     <script src="app.js"></script>
 </body>
 </html>
