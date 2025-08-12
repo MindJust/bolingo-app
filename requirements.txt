@@ -9,4 +9,3 @@ google-generativeai
 python-dotenv
 uvloop
 sqlalchemy
-psycopg2-binary
