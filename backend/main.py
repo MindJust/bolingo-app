@@ -3,12 +3,15 @@ import logging
 from fastapi import APIRouter, Request, Response
 from contextlib import asynccontextmanager
 from telegram import Update
-from .bot_logic import setup_bot_application # Notez le '.' devant bot_logic
+from .bot_logic import setup_bot_application
 
 # Crée un "routeur" au lieu d'une application FastAPI complète
-# C'est un mini-générateur de routes que l'on peut inclure ailleurs
 api_router = APIRouter()
 bot_app = None
+
+# --- Configuration du logging (ajouté ici pour être sûr) ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(router: APIRouter):
@@ -19,11 +22,13 @@ async def lifespan(router: APIRouter):
         await bot_app.initialize()
         webhook_url = os.getenv("RENDER_EXTERNAL_URL")
         if webhook_url:
+            # Le webhook pointe maintenant vers /api/webhook
+            full_webhook_url = f"{webhook_url}/api/webhook"
             await bot_app.bot.set_webhook(
-                url=f"{webhook_url}/api/webhook", # Le webhook pointe maintenant vers /api/webhook
+                url=full_webhook_url,
                 allowed_updates=Update.ALL_TYPES
             )
-            logger.info(f"Webhook configuré sur {webhook_url}/api/webhook")
+            logger.info(f"Webhook configuré sur {full_webhook_url}")
         yield
     finally:
         if bot_app:
@@ -31,8 +36,8 @@ async def lifespan(router: APIRouter):
             await bot_app.bot.delete_webhook()
             await bot_app.shutdown()
 
-# Attache le lifespan au routeur
-api_router.router.lifespan_context = lifespan
+# Attache le lifespan au routeur avec la syntaxe correcte
+api_router.lifespan = lifespan
 
 @api_router.get("/health")
 async def health_check():
