@@ -1,9 +1,0 @@
-fastapi
-uvicorn[standard]
-gunicorn
-python-telegram-bot
-pydantic
-apscheduler
-psycopg2-binary
-google-generativeai
-python-dotenv
