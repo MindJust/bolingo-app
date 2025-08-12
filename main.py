@@ -40,25 +40,21 @@ async def show_charte_handler(query):
     await query.edit_message_text(text=charte_text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def accept_charte_handler(query):
-    webapp_url = os.getenv("RENDER_EXTERNAL_URL")
-    if not webapp_url:
+    base_url = os.getenv("RENDER_EXTERNAL_URL")
+    if not base_url:
         await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée.")
         return
+    
+    # --- LA CORRECTION EST ICI ---
+    # On ajoute un paramètre de version pour forcer le rechargement
+    webapp_url_with_version = f"{base_url}?v=2.0"
+    
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
-    keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url))]]
+    keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text=text, reply_markup=reply_markup)
 
-def setup_bot_application():
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if not token:
-        logger.critical("ERREUR CRITIQUE: TELEGRAM_BOT_TOKEN n'est pas défini.")
-        raise ValueError("Le token Telegram n'est pas défini.")
-    application = Application.builder().token(token).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button_handler))
-    return application
-
+# Le reste du fichier est identique...
 
 # --- Gestion du Cycle de Vie et de l'Application FastAPI (Anciennement main.py) ---
 
