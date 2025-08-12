@@ -10,7 +10,7 @@ const secretQuestions = document.getElementById('secret-questions');
 const allOptionButtons = document.querySelectorAll('.option-btn');
 
 // --- GESTION DE L'ÉTAT ---
-let currentStep = 1; // 1 = Profile Builder, 2 = Secret Questions
+let currentStep = 1;
 
 // --- STOCKAGE DES DONNÉES ---
 const userChoices = { vibe: null, weekend: null, valeurs: null, plaisir: null };
@@ -18,7 +18,6 @@ const secretAnswers = { energie: null, decision: null, conflit: null, ressources
 
 // --- LOGIQUE ---
 
-// Gère le clic sur n'importe quel bouton d'option
 allOptionButtons.forEach(button => {
     button.addEventListener('click', () => {
         const group = button.dataset.group;
@@ -57,29 +56,50 @@ function checkCurrentFormCompletion() {
 }
 
 // Gère le clic sur le bouton principal de Telegram
-tg.onEvent('mainButtonClicked', () => {
+tg.onEvent('mainButtonClicked', async () => {
     if (currentStep === 1) {
+        // Affiche l'indicateur de chargement
+        tg.MainButton.showProgress(true).disable();
+
+        // **On appelle l'API pour générer la description en arrière-plan**
+        try {
+            if (!tg.initData) {
+                tg.showAlert('Erreur: Impossible de vérifier votre identité.');
+                tg.MainButton.hideProgress().enable();
+                return;
+            }
+            // On ne fait rien avec la 'response' ici, on veut juste déclencher l'action
+            await fetch('/api/generate-description', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `tma ${tg.initData}`
+                },
+                body: JSON.stringify(userChoices),
+            });
+        } catch (error) {
+            // En cas d'échec de l'appel, on prévient l'utilisateur
+            tg.showAlert('Erreur de connexion. Impossible de générer la description.');
+            tg.MainButton.hideProgress().enable();
+            return; // On ne continue pas
+        }
+
         // On passe à l'étape 2
         currentStep = 2;
-        
-        // On effectue la transition visuelle
         profileBuilder.style.display = 'none';
         secretQuestions.style.display = 'block';
 
         // On réinitialise le bouton principal
-        tg.MainButton.hide();
-
-        // On peut toujours appeler l'API de description en arrière-plan ici si on veut.
-        // fetch('/api/generate-description', ...);
-
+        tg.MainButton.hide().hideProgress().enable();
+        
         tg.showPopup({
             title: 'Parfait !',
-            message: 'Réponds maintenant à ces quelques questions secrètes pour affiner ton profil.',
+            message: 'Ta description est en cours de création et arrivera dans un message. Pendant ce temps, réponds à ces quelques questions secrètes.',
             buttons: [{ type: 'ok' }]
         });
-        
+
     } else if (currentStep === 2) {
-        // On termine le processus
+        // Étape future : envoyer les `secretAnswers` au backend
         tg.showAlert(`Félicitations ! Ton profil est presque complet. Données secrètes : ${Object.values(secretAnswers).join(', ')}`);
         tg.close();
     }
