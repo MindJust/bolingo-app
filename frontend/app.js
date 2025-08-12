@@ -21,7 +21,7 @@ optionButtons.forEach(button => {
 
 function checkFormCompletion() {
     if (Object.values(userChoices).every(choice => choice !== null)) {
-        tg.MainButton.setText('Générer ma description');
+        tg.MainButton.setText('Valider mes choix');
         tg.MainButton.show();
     }
 }
@@ -29,9 +29,8 @@ function checkFormCompletion() {
 tg.onEvent('mainButtonClicked', async () => {
     tg.MainButton.showProgress(true).disable();
     try {
-        // La donnée d'initialisation de Telegram est la clé de la sécurité
         if (!tg.initData) {
-            tg.showAlert('Erreur: Impossible de vérifier votre identité. Veuillez redémarrer le bot.');
+            tg.showAlert('Erreur: Impossible de vérifier votre identité.');
             return;
         }
 
@@ -39,14 +38,15 @@ tg.onEvent('mainButtonClicked', async () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `tma ${tg.initData}` // Envoi de la preuve
+                'Authorization': `tma ${tg.initData}`
             },
             body: JSON.stringify(userChoices),
         });
 
         if (response.ok) {
             const result = await response.json();
-            tg.showAlert(`Voici ta description générée :\n\n${result.description}`);
+            // On affiche le message de confirmation et on ferme
+            tg.showAlert(result.message);
             tg.close();
         } else {
             const errorResult = await response.json();
