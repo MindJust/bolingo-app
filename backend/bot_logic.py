@@ -28,17 +28,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await accept_charte_handler(query)
 
 async def show_charte_handler(query):
-    """Affiche la charte et le bouton d'acceptation."""
+    """Affiche la charte et le bouton d'acceptation en utilisant le format HTML."""
     charte_text = (
         "Ok. D'abord, lis nos 3 règles. C'est important pour la sécurité. 🛡️\n\n"
-        "✅ *Respect* obligatoire\n"
-        "✅ *Vrai profil*, vraies photos\n"
-        "✅ *Pas de harcèlement*"
+        "✅ <b>Respect</b> obligatoire\n"
+        "✅ <b>Vrai profil</b>, vraies photos\n"
+        "✅ <b>Pas de harcèlement</b>"
     )
     keyboard = [[InlineKeyboardButton("✅ D'accord, j'accepte les règles", callback_data="accept_charte")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    # On ajoute parse_mode='MarkdownV2' pour activer le formatage
-    await query.edit_message_text(text=charte_text, reply_markup=reply_markup, parse_mode='MarkdownV2')
+    # On utilise maintenant 'HTML' comme mode de formatage
+    await query.edit_message_text(text=charte_text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def accept_charte_handler(query):
     """Confirme l'acceptation de la charte et prépare la suite."""
