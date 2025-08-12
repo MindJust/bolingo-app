@@ -1,60 +1,100 @@
 const tg = window.Telegram.WebApp;
 
+// --- CONFIGURATION ---
 tg.expand();
 tg.setHeaderColor('secondary_bg_color');
 
-const userChoices = { vibe: null, weekend: null, valeurs: null, plaisir: null };
-const optionButtons = document.querySelectorAll('.option-btn');
+// --- ÉLÉMENTS DU DOM ---
+const profileBuilder = document.getElementById('profile-builder');
+const secretQuestions = document.getElementById('secret-questions');
+const allOptionButtons = document.querySelectorAll('.option-btn');
 
-optionButtons.forEach(button => {
+// --- STOCKAGE DES DONNÉES ---
+const userChoices = { vibe: null, weekend: null, valeurs: null, plaisir: null };
+const secretAnswers = { energie: null, decision: null, conflit: null, ressources: null, focus: null };
+
+// --- LOGIQUE ---
+
+// Gère le clic sur n'importe quel bouton d'option
+allOptionButtons.forEach(button => {
     button.addEventListener('click', () => {
         const group = button.dataset.group;
         const value = button.dataset.value;
-        userChoices[group] = value;
+
+        // Met à jour le bon objet de stockage
+        if (group in userChoices) {
+            userChoices[group] = value;
+        } else if (group in secretAnswers) {
+            secretAnswers[group] = value;
+        }
+
+        // Met à jour l'affichage
         document.querySelectorAll(`.option-btn[data-group="${group}"]`).forEach(btn => {
             btn.classList.remove('selected');
         });
         button.classList.add('selected');
-        checkFormCompletion();
+
+        // Vérifie si l'écran actuel est complet
+        checkCurrentFormCompletion();
     });
 });
 
-function checkFormCompletion() {
-    if (Object.values(userChoices).every(choice => choice !== null)) {
-        tg.MainButton.setText('Valider mes choix');
-        tg.MainButton.show();
+function checkCurrentFormCompletion() {
+    // Si l'écran 1 est visible
+    if (profileBuilder.style.display !== 'none') {
+        const isComplete = Object.values(userChoices).every(choice => choice !== null);
+        if (isComplete) {
+            tg.MainButton.setText('Valider et continuer');
+            tg.MainButton.show();
+        }
+    } 
+    // Si l'écran 2 est visible
+    else {
+        const isComplete = Object.values(secretAnswers).every(answer => answer !== null);
+        if (isComplete) {
+            tg.MainButton.setText('Terminer mon profil');
+            tg.MainButton.show();
+        }
     }
 }
 
+// Gère le clic sur le bouton principal de Telegram
 tg.onEvent('mainButtonClicked', async () => {
-    tg.MainButton.showProgress(true).disable();
-    try {
-        if (!tg.initData) {
-            tg.showAlert('Erreur: Impossible de vérifier votre identité. Veuillez redémarrer le bot.');
-            return;
-        }
-
-        const response = await fetch('/api/generate-description', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `tma ${tg.initData}`
-            },
-            body: JSON.stringify(userChoices),
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            // --- LA CORRECTION EST ICI ---
-            tg.showAlert(result.message); // On affiche le message de confirmation du serveur
-            tg.close();
-        } else {
-            const errorResult = await response.json();
-            tg.showAlert(`Une erreur est survenue : ${errorResult.detail || 'Erreur inconnue'}`);
-        }
-    } catch (error) {
-        tg.showAlert(`Erreur de connexion. Veuillez réessayer.`);
-    } finally {
-        tg.MainButton.hideProgress().enable();
+    // Si on est sur l'écran 1
+    if (profileBuilder.style.display !== 'none') {
+        handleProfileBuilderSubmit();
+    } 
+    // Si on est sur l'écran 2
+    else {
+        handleSecretQuestionsSubmit();
     }
 });
+
+async function handleProfileBuilderSubmit() {
+    tg.MainButton.showProgress(true).disable();
+    // (Pour l'instant, on ne fait rien avec la réponse, on passe juste à l'écran suivant)
+    // Ici, on pourrait appeler l'API /generate-description si on le voulait.
+
+    // On simule une petite attente pour que l'utilisateur comprenne qu'une action a eu lieu
+    setTimeout(() => {
+        profileBuilder.style.display = 'none';
+        secretQuestions.style.display = 'block';
+        
+        tg.MainButton.hideProgress();
+        tg.MainButton.hide(); // On cache le bouton, il réapparaîtra quand le 2ème form sera complet
+        
+        // On notifie l'utilisateur que sa description arrive
+        tg.showPopup({
+            title: 'Parfait !',
+            message: 'Ta description est en cours de création. Tu la recevras dans un instant. Pendant ce temps, réponds à ces quelques questions secrètes.',
+            buttons: [{ type: 'ok' }]
+        });
+        
+    }, 500); // 0.5 seconde
+}
+
+function handleSecretQuestionsSubmit() {
+    // Étape future : envoyer les `secretAnswers` au backend
+    tg.showAlert(`Félicitations ! Ton profil est presque complet. Données secrètes enregistrées (pour le test) : ${secretAnswers.energie}, ${secretAnswers.decision}...`);
+    tg.close();
+}
