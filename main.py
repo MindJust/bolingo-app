@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from pydantic import BaseModel # Importé pour définir la structure des données
 from telegram import Update, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -10,8 +11,15 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Logique du Bot ---
+# --- Modèles de Données (pour l'API) ---
+class ProfileChoices(BaseModel):
+    vibe: str
+    weekend: str
+    valeurs: str
+    plaisir: str
 
+# --- Logique du Bot ---
+# (Toute la logique du bot reste identique, de 'async def start' à 'def setup_bot_application')
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     welcome_text = "Salut ! 👋 Prêt(e) pour Bolingo ? Ici, c'est pour des rencontres sérieuses et dans le respect. On y va ?"
     keyboard = [[InlineKeyboardButton("✅ Oui, on y va !", callback_data="show_charte")]]
@@ -60,9 +68,9 @@ def setup_bot_application():
     return application
 
 # --- Gestion du Cycle de Vie et de l'Application FastAPI ---
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # (Le contenu de lifespan reste identique)
     logger.info("Démarrage du service...")
     bot_app = setup_bot_application()
     await bot_app.initialize()
@@ -79,7 +87,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# --- Endpoints API (Déclarés AVANT les fichiers statiques) ---
+# --- Endpoints API ---
 
 @app.post("/api/webhook")
 async def webhook(request: Request):
@@ -88,6 +96,17 @@ async def webhook(request: Request):
     await bot_app.process_update(update)
     return Response(status_code=200)
 
-# --- Servir le Frontend (Déclaré EN DERNIER) ---
-# La racine "/" sert maintenant de Health Check pour Render ET de point d'entrée pour la Web App.
+# --- NOUVELLE SECTION : API POUR LA WEB APP ---
+@app.post("/api/generate-description")
+async def generate_description(choices: ProfileChoices):
+    # Pour l'instant, on ne fait que recevoir les choix et les afficher dans les logs
+    # pour prouver que la connexion fonctionne.
+    logger.info(f"Reçu les choix du Profile Builder : {choices.dict()}")
+    
+    # Plus tard, nous appellerons l'API Gemini ici.
+    
+    # On renvoie une fausse description pour le test.
+    return {"description": f"Ceci est une description générée pour quelqu'un de {choices.vibe} qui aime les week-ends {choices.weekend}."}
+
+# --- Servir le Frontend ---
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
