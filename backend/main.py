@@ -7,6 +7,10 @@ from contextlib import asynccontextmanager
 from telegram import Update
 from telegram.ext import Application
 from bot_logic import setup_bot_application
+import pathlib # On importe une librairie pour gérer les chemins de fichiers
+
+# Définir le chemin de base du projet (la racine où se trouvent 'backend' et 'frontend')
+BASE_DIR = pathlib.Path(__file__).parent.parent
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -16,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # (Le contenu de lifespan ne change pas, il reste identique)
     logger.info("Phase de démarrage (startup)...")
     try:
         bot_app = setup_bot_application()
@@ -51,6 +56,7 @@ async def health_check():
 
 @app.post("/webhook")
 async def webhook(request: Request):
+    # (Le contenu de webhook ne change pas, il reste identique)
     if not hasattr(request.app.state, 'bot_app'):
         logger.error("L'application bot n'est pas disponible.")
         return Response(status_code=500)
@@ -63,13 +69,13 @@ async def webhook(request: Request):
         logger.error(f"Erreur lors du traitement du webhook : {e}", exc_info=True)
         return Response(status_code=500)
 
-# --- Servir la Web App (NOUVELLE SECTION) ---
+# --- Servir la Web App (SECTION CORRIGÉE) ---
 
-# Monter le dossier 'frontend' comme un répertoire de fichiers statiques
-# La route est vide pour que le serveur cherche à la racine du domaine
-app.mount("/app", StaticFiles(directory="frontend", html=True), name="webapp")
+# Monter le dossier 'frontend' en utilisant le chemin de base correct
+# BASE_DIR / "frontend" construit le chemin absolu vers le dossier frontend
+app.mount("/app", StaticFiles(directory=BASE_DIR / "frontend", html=True), name="webapp")
 
 @app.get("/")
 async def read_root():
-    # Redirige la racine du site vers la Web App
-    return FileResponse('frontend/index.html')
+    # Redirige la racine du site vers le fichier index.html correct
+    return FileResponse(BASE_DIR / "frontend" / "index.html")
