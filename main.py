@@ -2,47 +2,22 @@ import os
 import logging
 import hmac
 import hashlib
+import asyncio # Importé pour les tâches de fond
 from urllib.parse import unquote
-from fastapi import FastAPI, Request, Response, Depends, HTTPException
+from fastapi import FastAPI, Request, Response, Depends, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from pydantic import BaseModel
+from pydantic import BaseModel, Json
 from telegram import Update, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import google.generativeai as genai
+import json
 
 # --- Configuration & Initialisation ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-
-# --- MODÈLE DE SÉCURITÉ ---
-async def validate_webapp_data(request: Request):
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('tma '):
-        raise HTTPException(status_code=401, detail="Non autorisé")
-    
-    init_data_str = auth_header.split(' ', 1)[1]
-    
-    try:
-        secret_key = hmac.new("WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256).digest()
-        data_check_string = "\n".join(sorted([
-            f"{key}={value}" for key, value in 
-            [item.split('=', 1) for item in unquote(init_data_str).split('&') if item.split('=', 1)[0] != 'hash']
-        ]))
-        expected_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-        sent_hash = next((item.split('=', 1)[1] for item in init_data_str.split('&') if item.startswith('hash=')), None)
-
-        if not sent_hash or not hmac.compare_digest(expected_hash, sent_hash):
-            raise HTTPException(status_code=401, detail="Validation échouée")
-            
-        user_data = next((item.split('=', 1)[1] for item in init_data_str.split('&') if item.startswith('user=')), None)
-        return {"init_data": init_data_str, "user": unquote(user_data)}
-
-    except Exception as e:
-        logger.error(f"Erreur de validation: {e}")
-        raise HTTPException(status_code=401, detail="Validation invalide")
 
 # --- Modèles de Données ---
 class ProfileChoices(BaseModel):
@@ -51,10 +26,59 @@ class ProfileChoices(BaseModel):
     valeurs: str
     plaisir: str
 
-# --- Logique de l'IA (désactivée pour le test) ---
-def generate_ai_description(choices: ProfileChoices) -> str:
-    # ... le code de l'IA reste ici, mais ne sera pas appelé par l'endpoint de test
-    pass
+class UserData(BaseModel):
+    id: int
+    first_name: str
+
+class AuthData(BaseModel):
+    init_data: str
+    user: UserData
+
+# --- MODÈLE DE SÉCURITÉ (mis à jour pour Pydantic) ---
+async def validate_webapp_data(request: Request) -> AuthData:
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('tma '):
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    init_data_str = auth_header.split(' ', 1)[1]
+    try:
+        secret_key = hmac.new("WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256).digest()
+        # ... (le reste de la logique de validation est identique) ...
+        data_check_string = "\n".join(sorted([f"{k}={v}" for k, v in [item.split('=', 1) for item in unquote(init_data_str).split('&') if item.split('=', 1)[0] != 'hash']]))
+        expected_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+        sent_hash = next((item.split('=', 1)[1] for item in init_data_str.split('&') if item.startswith('hash=')), None)
+        if not sent_hash or not hmac.compare_digest(expected_hash, sent_hash):
+            raise HTTPException(status_code=401, detail="Validation échouée")
+        user_json_str = unquote(next((item.split('=', 1)[1] for item in init_data_str.split('&') if item.startswith('user=')), '{}'))
+        user_data = json.loads(user_json_str)
+        return AuthData(init_data=init_data_str, user=UserData(**user_data))
+    except Exception as e:
+        logger.error(f"Erreur de validation: {e}")
+        raise HTTPException(status_code=401, detail="Validation invalide")
+
+# --- Logique de l'IA (mise en asynchrone) ---
+async def generate_and_send_description(user_id: int, choices: ProfileChoices, bot_app: Application):
+    logger.info(f"Début de la génération de la description en arrière-plan pour l'utilisateur {user_id}")
+    try:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            await bot_app.bot.send_message(chat_id=user_id, text="Erreur : la configuration de l'IA est manquante.")
+            return
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        prompt = (
+            "Tu es Bolingo. Rédige une description de profil courte (2-3 phrases), sincère et positive à partir des choix suivants :\n"
+            f"- Vibe : {choices.vibe}\n- Weekend : {choices.weekend}\n- Valeurs : {choices.valeurs}\n- Plaisir : {choices.plaisir}\n\n"
+            "Termine par une phrase d'ouverture."
+        )
+        response = await model.generate_content_async(prompt)
+        description = response.text.strip()
+        
+        # Envoi de la description via le bot
+        message_text = f"✨ Voici la description de profil que j'ai préparée pour toi :\n\n_{description}_\n\nTu pourras la modifier plus tard. La prochaine étape sera d'ajouter tes photos."
+        await bot_app.bot.send_message(chat_id=user_id, text=message_text, parse_mode='MarkdownV2')
+    except Exception as e:
+        logger.error(f"Erreur lors de la génération IA en arrière-plan : {e}")
+        await bot_app.bot.send_message(chat_id=user_id, text="Oups, une erreur est survenue lors de la création de ta description. Nous allons y remédier.")
 
 # --- Logique du Bot ---
 # ... (inchangée)
@@ -78,7 +102,7 @@ async def accept_charte_handler(query):
     if not base_url:
         await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée.")
         return
-    webapp_url_with_version = f"{base_url}?v=final_secure_v2"
+    webapp_url_with_version = f"{base_url}?v=async_final"
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
     keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -93,6 +117,7 @@ def setup_bot_application():
 # --- Cycle de Vie & App FastAPI ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # ... (inchangé)
     logger.info("Démarrage du service...")
     bot_app = setup_bot_application()
     await bot_app.initialize()
@@ -111,22 +136,21 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 # --- Endpoints API ---
 @app.post("/api/webhook")
 async def webhook(request: Request):
+    # ... (inchangé)
     update = Update.de_json(await request.json(), request.app.state.bot_app.bot)
     await request.app.state.bot_app.process_update(update)
     return Response(status_code=200)
 
 @app.post("/api/generate-description")
-async def generate_description_api(choices: ProfileChoices, auth: dict = Depends(validate_webapp_data)):
-    logger.info(f"Requête de description validée pour l'utilisateur : {auth.get('user')}")
+async def generate_description_api(choices: ProfileChoices, background_tasks: BackgroundTasks, auth: AuthData = Depends(validate_webapp_data)):
+    user_id = auth.user.id
+    logger.info(f"Requête reçue pour l'utilisateur {user_id}. Lancement en arrière-plan.")
     
-    # --- LA MODIFICATION EST ICI ---
-    # On met l'appel à l'IA en commentaire pour le test.
-    # description = generate_ai_description(choices) 
+    # Lancement de la tâche de fond
+    background_tasks.add_task(generate_and_send_description, user_id, choices, app.state.bot_app)
     
-    # On renvoie une description de test INSTANTANÉE.
-    description = f"TEST DE VITESSE : La plomberie fonctionne ! Vibe choisie : {choices.vibe}."
-    
-    return {"description": description}
+    # Réponse immédiate à la Web App
+    return {"status": "ok", "message": "Ta description est en cours de création. Tu vas la recevoir par message dans un instant !"}
 
 # --- Servir le Frontend ---
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
