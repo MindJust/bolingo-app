@@ -5,7 +5,7 @@ import hashlib
 from urllib.parse import unquote
 from fastapi import FastAPI, Request, Response, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware # L'IMPORT QUE J'AI OUBLIÉ
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from telegram import Update, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# --- MODÈLE DE SÉCURITÉ (VERSION COMPLÈTE RESTAURÉE) ---
+# --- MODÈLE DE SÉCURITÉ ---
 async def validate_webapp_data(request: Request):
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('tma '):
@@ -51,27 +51,13 @@ class ProfileChoices(BaseModel):
     valeurs: str
     plaisir: str
 
-# --- Logique de l'IA ---
+# --- Logique de l'IA (désactivée pour le test) ---
 def generate_ai_description(choices: ProfileChoices) -> str:
-    # ... (inchangé)
-    try:
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key: return "Erreur : la configuration de l'IA est manquante."
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        prompt = (
-            "Tu es Bolingo, un assistant de rencontre bienveillant. Rédige une description de profil courte (2-3 phrases), sincère et positive à partir des choix suivants :\n"
-            f"- Vibe générale : {choices.vibe}\n- Temps libre : {choices.weekend}\n- Valeurs : {choices.valeurs}\n- Petit plaisir : {choices.plaisir}\n\n"
-            "Termine par une phrase d'ouverture invitant à la discussion."
-        )
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except Exception as e:
-        logger.error(f"Erreur lors de la génération IA : {e}")
-        return "Je suis une personne intéressante qui cherche à faire de belles rencontres."
+    # ... le code de l'IA reste ici, mais ne sera pas appelé par l'endpoint de test
+    pass
 
 # --- Logique du Bot ---
-# ... (inchangé)
+# ... (inchangée)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     welcome_text = "Salut ! 👋 Prêt(e) pour Bolingo ? Ici, c'est pour des rencontres sérieuses et dans le respect. On y va ?"
     keyboard = [[InlineKeyboardButton("✅ Oui, on y va !", callback_data="show_charte")]]
@@ -92,7 +78,7 @@ async def accept_charte_handler(query):
     if not base_url:
         await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée.")
         return
-    webapp_url_with_version = f"{base_url}?v=final_secure"
+    webapp_url_with_version = f"{base_url}?v=final_secure_v2"
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
     keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -132,7 +118,14 @@ async def webhook(request: Request):
 @app.post("/api/generate-description")
 async def generate_description_api(choices: ProfileChoices, auth: dict = Depends(validate_webapp_data)):
     logger.info(f"Requête de description validée pour l'utilisateur : {auth.get('user')}")
-    description = generate_ai_description(choices)
+    
+    # --- LA MODIFICATION EST ICI ---
+    # On met l'appel à l'IA en commentaire pour le test.
+    # description = generate_ai_description(choices) 
+    
+    # On renvoie une description de test INSTANTANÉE.
+    description = f"TEST DE VITESSE : La plomberie fonctionne ! Vibe choisie : {choices.vibe}."
+    
     return {"description": description}
 
 # --- Servir le Frontend ---
