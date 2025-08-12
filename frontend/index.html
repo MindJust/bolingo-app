@@ -8,11 +8,12 @@
 </head>
 <body>
     <div id="app">
+        <!-- ÉCRAN 1 : PROFILE BUILDER -->
         <div id="profile-builder">
             <h2>Crée ton Profil en 4 clics ✨</h2>
             <p>Réponds à ces questions pour que notre IA puisse créer une description unique pour toi.</p>
-            
             <form id="builder-form">
+                <!-- Les 4 questions du builder restent ici, inchangées -->
                 <div class="form-group">
                     <label>Comment te décrirais-tu ?</label>
                     <div class="options">
@@ -22,7 +23,6 @@
                         <button type="button" class="option-btn" data-group="vibe" data-value="Drôle et léger(e)">Drôle et léger(e)</button>
                     </div>
                 </div>
-
                 <div class="form-group">
                     <label>Ton week-end idéal, c'est plutôt...</label>
                     <div class="options">
@@ -32,7 +32,6 @@
                         <button type="button" class="option-btn" data-group="weekend" data-value="Sport ou nature">Sport ou nature</button>
                     </div>
                 </div>
-
                 <div class="form-group">
                     <label>Dans la vie, tu recherches avant tout...</label>
                     <div class="options">
@@ -42,7 +41,6 @@
                         <button type="button" class="option-btn" data-group="valeurs" data-value="La passion et l'aventure">La passion et l'aventure</button>
                     </div>
                 </div>
-                
                 <div class="form-group">
                     <label>Quelle est ta petite faiblesse ?</label>
                     <div class="options">
@@ -54,9 +52,53 @@
                 </div>
             </form>
         </div>
+
+        <!-- ÉCRAN 2 : QUESTIONS SECRÈTES (caché par défaut) -->
+        <div id="secret-questions">
+            <h2>Dernière étape 🤫</h2>
+            <p>Ces réponses resteront secrètes et ne serviront qu'à notre algorithme pour te trouver les meilleurs profils.</p>
+
+            <form id="secret-form">
+                <div class="form-group">
+                    <label>Dimanche, journée libre. Tu préfères :</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="energie" data-value="1">Bouger, voir du monde</button>
+                        <button type="button" class="option-btn" data-group="energie" data-value="2">Tranquille, à la maison</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Pour acheter un truc qui te plaît :</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="decision" data-value="1">C'est au coup de cœur, direct</button>
+                        <button type="button" class="option-btn" data-group="decision" data-value="2">Tu prends ton temps, tu compares</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Au restaurant, le plat manque un peu de sel :</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="conflit" data-value="1">Tu le dis gentiment au serveur</button>
+                        <button type="button" class="option-btn" data-group="conflit" data-value="2">Tu ne dis rien pour ne pas faire d'histoires</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Fin du mois un peu difficile :</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="ressources" data-value="1">Tu te débrouilles, mais tu gardes les petites sorties</button>
+                        <button type="button" class="option-btn" data-group="ressources" data-value="2">Tu fais très attention, pas de dépenses plaisir</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Ton but principal dans la vie en ce moment :</label>
+                    <div class="options">
+                        <button type="button" class="option-btn" data-group="focus" data-value="1">Réussir mes projets personnels</button>
+                        <button type="button" class="option-btn" data-group="focus" data-value="2">Être un pilier pour ma famille</button>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="app.js?v=2.0"></script>
+    <script src="app.js?v=final_stable"></script> <!-- J'incrémente la version -->
 </body>
 </html>
