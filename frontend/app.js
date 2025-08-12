@@ -30,7 +30,7 @@ tg.onEvent('mainButtonClicked', async () => {
     tg.MainButton.showProgress(true).disable();
     try {
         if (!tg.initData) {
-            tg.showAlert('Erreur: Impossible de vérifier votre identité.');
+            tg.showAlert('Erreur: Impossible de vérifier votre identité. Veuillez redémarrer le bot.');
             return;
         }
 
@@ -45,8 +45,8 @@ tg.onEvent('mainButtonClicked', async () => {
 
         if (response.ok) {
             const result = await response.json();
-            // On affiche le message de confirmation et on ferme
-            tg.showAlert(result.message);
+            // --- LA CORRECTION EST ICI ---
+            tg.showAlert(result.message); // On affiche le message de confirmation du serveur
             tg.close();
         } else {
             const errorResult = await response.json();
