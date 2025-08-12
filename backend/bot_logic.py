@@ -37,7 +37,7 @@ async def show_charte_handler(query):
     )
     keyboard = [[InlineKeyboardButton("✅ D'accord, j'accepte les règles", callback_data="accept_charte")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(text=charte_text, reply_markup=reply_markup)
+    await query.edit_message_text(text=charte_text, reply_markup=reply_markup, parse_mode='MarkdownV2')
 
 async def accept_charte_handler(query):
     """Confirme l'acceptation de la charte et prépare la suite."""
