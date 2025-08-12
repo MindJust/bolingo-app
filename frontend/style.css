@@ -1,0 +1,22 @@
+:root {
+    /* Ces couleurs seront automatiquement adaptées par Telegram */
+    --bg-color: var(--telegram-bg-color);
+    --text-color: var(--telegram-text-color);
+    --hint-color: var(--telegram-hint-color);
+    --button-color: var(--telegram-button-color);
+    --button-text-color: var(--telegram-button-text-color);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+#app {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
