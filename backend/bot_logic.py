@@ -19,9 +19,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Gère tous les clics sur les boutons inline."""
     query = update.callback_query
-    await query.answer()  # Indispensable pour dire à Telegram qu'on a bien reçu le clic
+    await query.answer()
 
-    # Routeur de callbacks
     if query.data == 'show_charte':
         await show_charte_handler(query)
     elif query.data == 'accept_charte':
@@ -37,15 +36,31 @@ async def show_charte_handler(query):
     )
     keyboard = [[InlineKeyboardButton("✅ D'accord, j'accepte les règles", callback_data="accept_charte")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    # On utilise maintenant 'HTML' comme mode de formatage
     await query.edit_message_text(text=charte_text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def accept_charte_handler(query):
-    """Confirme l'acceptation de la charte et prépare la suite."""
-    # Pour l'instant, on envoie juste une confirmation.
-    # Plus tard, on lancera la Web App ici.
-    text = "Charte acceptée ! 👍\nBientôt, la création de ton profil commencera ici."
-    await query.edit_message_text(text=text)
+    """
+    Confirme l'acceptation et envoie le bouton pour ouvrir la Web App.
+    """
+    # On récupère l'URL de notre service depuis les variables d'environnement
+    # C'est l'URL de base où notre Web App est servie.
+    webapp_url = os.getenv("RENDER_EXTERNAL_URL")
+    
+    if not webapp_url:
+        await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée.")
+        return
+
+    text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
+    
+    # On crée un bouton spécial qui ouvre une Web App
+    # L'URL doit être celle de notre page index.html
+    keyboard = [[InlineKeyboardButton(
+        "✨ Créer mon profil", 
+        web_app=WebAppInfo(url=webapp_url)
+    )]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text=text, reply_markup=reply_markup)
 
 # --- Configuration de l'application ---
 
@@ -58,8 +73,7 @@ def setup_bot_application():
     
     application = Application.builder().token(token).build()
 
-    # Ajout des handlers
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button_handler)) # Handler générique pour tous les boutons
+    application.add_handler(CallbackQueryHandler(button_handler))
 
     return application
