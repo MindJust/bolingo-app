@@ -7,3 +7,4 @@ apscheduler
 psycopg2-binary
 google-generativeai
 python-dotenv
+uvloop
