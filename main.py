@@ -6,7 +6,7 @@ from urllib.parse import unquote
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Response, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, Response, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -44,9 +44,9 @@ async def validate_webapp_data(request: Request) -> AuthData:
 # --- Logique de l'IA ---
 def generate_ai_description(choices: ProfileChoices) -> str:
     try:
+        import google.generativeai as genai
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key: return "Erreur : la configuration de l'IA est manquante."
-        import google.generativeai as genai
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
@@ -66,20 +66,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [[InlineKeyboardButton("✅ Oui, on y va !", callback_data="show_charte")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(welcome_text, reply_markup=reply_markup)
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     if query.data == 'show_charte': await show_charte_handler(query)
     elif query.data == 'accept_charte': await accept_charte_handler(query)
+
 async def show_charte_handler(query):
     charte_text = "Ok. D'abord, lis nos 3 règles. C'est important pour la sécurité. 🛡️\n\n✅ <b>Respect</b> obligatoire\n✅ <b>Vrai profil</b>, vraies photos\n✅ <b>Pas de harcèlement</b>"
     keyboard = [[InlineKeyboardButton("✅ D'accord, j'accepte les règles", callback_data="accept_charte")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text=charte_text, reply_markup=reply_markup, parse_mode='HTML')
+
 async def accept_charte_handler(query):
     base_url = os.getenv("RENDER_EXTERNAL_URL")
     if not base_url: await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée."); return
-    webapp_url_with_version = f"{base_url}?v=1.0.0"
+    webapp_url_with_version = f"{base_url}?v=1.0.0" # Version stable
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
     keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -89,16 +92,22 @@ async def accept_charte_handler(query):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not BOT_TOKEN: raise ValueError("Le token Telegram n'est pas défini.")
+    
     bot_app = Application.builder().token(BOT_TOKEN).build()
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CallbackQueryHandler(button_handler))
+    
     await bot_app.initialize()
     webhook_url = os.getenv("RENDER_EXTERNAL_URL")
     if webhook_url:
-        await bot_app.bot.set_webhook(url=f"{webhook_url}/api/webhook", allowed_updates=Update.ALL_TYPES)
+        full_webhook_url = f"{webhook_url}/api/webhook"
+        await bot_app.bot.set_webhook(url=full_webhook_url, allowed_updates=Update.ALL_TYPES)
+        logger.info(f"Webhook configuré sur {full_webhook_url}")
+    
     app.state.bot_app = bot_app
     logger.info("Service démarré et bot initialisé.")
     yield
+    
     logger.info("Arrêt du service...")
     await app.state.bot_app.bot.delete_webhook()
     await app.state.bot_app.shutdown()
@@ -109,7 +118,10 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 # --- Endpoints API ---
 @app.post("/api/webhook")
 async def webhook(request: Request):
-    await request.app.state.bot_app.update_queue.put(await request.json())
+    bot_app = request.app.state.bot_app
+    update = Update.de_json(await request.json(), bot_app.bot)
+    # LA CORRECTION DE LA RÉGRESSION EST ICI
+    await bot_app.process_update(update)
     return Response(status_code=200)
 
 @app.post("/api/generate-description")
