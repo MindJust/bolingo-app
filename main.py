@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel, Json
 from telegram import Update, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-import google.genergenerativeai as genai
+import google.generativeai as genai # LA CORRECTION EST ICI
 import json
 
 # --- Configuration & Initialisation ---
@@ -26,7 +26,6 @@ class AuthData(BaseModel): init_data: str; user: UserData
 
 # --- MODÈLE DE SÉCURITÉ ---
 async def validate_webapp_data(request: Request) -> AuthData:
-    # ... (inchangé)
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('tma '): raise HTTPException(status_code=401, detail="Non autorisé")
     init_data_str = auth_header.split(' ', 1)[1]
@@ -60,16 +59,13 @@ async def generate_and_send_description(user_id: int, choices: ProfileChoices, b
         )
         response = await model.generate_content_async(prompt)
         description = response.text.strip()
-        
         message_text = f"✨ <b>Voici la description de profil que j'ai préparée pour toi :</b>\n\n{description}\n\nTu pourras la modifier plus tard. La prochaine étape sera d'ajouter tes photos."
-        # --- LA CORRECTION EST ICI ---
         await bot_app.bot.send_message(chat_id=user_id, text=message_text, parse_mode='HTML')
     except Exception as e:
         logger.error(f"Erreur lors de la génération IA en arrière-plan : {e}")
         await bot_app.bot.send_message(chat_id=user_id, text="Oups, une erreur est survenue lors de la création de ta description. Nous allons y remédier.")
 
 # --- Logique du Bot ---
-# ... (inchangée)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     welcome_text = "Salut ! 👋 Prêt(e) pour Bolingo ? Ici, c'est pour des rencontres sérieuses et dans le respect. On y va ?"
     keyboard = [[InlineKeyboardButton("✅ Oui, on y va !", callback_data="show_charte")]]
@@ -105,7 +101,6 @@ def setup_bot_application():
 # --- Cycle de Vie & App FastAPI ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ... (inchangé)
     logger.info("Démarrage du service...")
     bot_app = setup_bot_application()
     await bot_app.initialize()
@@ -124,7 +119,6 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 # --- Endpoints API ---
 @app.post("/api/webhook")
 async def webhook(request: Request):
-    # ... (inchangé)
     update = Update.de_json(await request.json(), request.app.state.bot_app.bot)
     await request.app.state.bot_app.process_update(update)
     return Response(status_code=200)
