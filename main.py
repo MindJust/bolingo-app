@@ -6,13 +6,14 @@ from urllib.parse import unquote
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Response, Depends, HTTPException
+from fastapi import FastAPI, Request, Response, Depends, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from telegram import Update, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+import google.generativeai as genai
 
 # --- Configuration & Initialisation ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -42,11 +43,13 @@ async def validate_webapp_data(request: Request) -> AuthData:
         raise HTTPException(status_code=401, detail="Validation invalide")
 
 # --- Logique de l'IA ---
-def generate_ai_description(choices: ProfileChoices) -> str:
+async def generate_and_send_description(user_id: int, choices: ProfileChoices, bot_app: Application):
+    logger.info(f"Début de la génération IA pour l'utilisateur {user_id}")
     try:
-        import google.generativeai as genai
         api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key: return "Erreur : la configuration de l'IA est manquante."
+        if not api_key:
+            await bot_app.bot.send_message(chat_id=user_id, text="Erreur : la configuration de l'IA est manquante.")
+            return
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
@@ -54,11 +57,13 @@ def generate_ai_description(choices: ProfileChoices) -> str:
             f"- Vibe : {choices.vibe}\n- Weekend : {choices.weekend}\n- Valeurs : {choices.valeurs}\n- Plaisir : {choices.plaisir}\n\n"
             "Termine par une phrase d'ouverture. N'utilise aucun formatage."
         )
-        response = model.generate_content(prompt)
-        return response.text.strip()
+        response = await model.generate_content_async(prompt)
+        description = response.text.strip()
+        message_text = f"✨ <b>Voici la description de profil que j'ai préparée pour toi :</b>\n\n{description}\n\nTu pourras la modifier plus tard. La prochaine étape sera d'ajouter tes photos."
+        await bot_app.bot.send_message(chat_id=user_id, text=message_text, parse_mode='HTML')
     except Exception as e:
         logger.error(f"Erreur lors de la génération IA : {e}")
-        return "Je suis une personne intéressante qui cherche à faire de belles rencontres."
+        await bot_app.bot.send_message(chat_id=user_id, text="Oups, une erreur est survenue lors de la création de ta description. Nous allons y remédier.")
 
 # --- Logique du Bot ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -66,23 +71,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [[InlineKeyboardButton("✅ Oui, on y va !", callback_data="show_charte")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(welcome_text, reply_markup=reply_markup)
-
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     if query.data == 'show_charte': await show_charte_handler(query)
     elif query.data == 'accept_charte': await accept_charte_handler(query)
-
 async def show_charte_handler(query):
     charte_text = "Ok. D'abord, lis nos 3 règles. C'est important pour la sécurité. 🛡️\n\n✅ <b>Respect</b> obligatoire\n✅ <b>Vrai profil</b>, vraies photos\n✅ <b>Pas de harcèlement</b>"
     keyboard = [[InlineKeyboardButton("✅ D'accord, j'accepte les règles", callback_data="accept_charte")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text=charte_text, reply_markup=reply_markup, parse_mode='HTML')
-
 async def accept_charte_handler(query):
     base_url = os.getenv("RENDER_EXTERNAL_URL")
     if not base_url: await query.edit_message_text(text="Erreur : L'adresse du service n'est pas configurée."); return
-    webapp_url_with_version = f"{base_url}?v=1.0.0" # Version stable
+    webapp_url_with_version = f"{base_url}?v=prod_1.0"
     text = "Charte acceptée ! 👍\nClique sur le bouton ci-dessous pour commencer à créer ton profil."
     keyboard = [[InlineKeyboardButton("✨ Créer mon profil", web_app=WebAppInfo(url=webapp_url_with_version))]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -92,22 +94,17 @@ async def accept_charte_handler(query):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not BOT_TOKEN: raise ValueError("Le token Telegram n'est pas défini.")
-    
     bot_app = Application.builder().token(BOT_TOKEN).build()
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CallbackQueryHandler(button_handler))
-    
     await bot_app.initialize()
     webhook_url = os.getenv("RENDER_EXTERNAL_URL")
     if webhook_url:
         full_webhook_url = f"{webhook_url}/api/webhook"
         await bot_app.bot.set_webhook(url=full_webhook_url, allowed_updates=Update.ALL_TYPES)
         logger.info(f"Webhook configuré sur {full_webhook_url}")
-    
     app.state.bot_app = bot_app
-    logger.info("Service démarré et bot initialisé.")
     yield
-    
     logger.info("Arrêt du service...")
     await app.state.bot_app.bot.delete_webhook()
     await app.state.bot_app.shutdown()
@@ -118,16 +115,15 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 # --- Endpoints API ---
 @app.post("/api/webhook")
 async def webhook(request: Request):
-    bot_app = request.app.state.bot_app
-    update = Update.de_json(await request.json(), bot_app.bot)
-    # LA CORRECTION DE LA RÉGRESSION EST ICI
-    await bot_app.process_update(update)
+    update = Update.de_json(await request.json(), request.app.state.bot_app.bot)
+    await request.app.state.bot_app.process_update(update)
     return Response(status_code=200)
 
 @app.post("/api/generate-description")
-async def generate_description_api(choices: ProfileChoices, auth: AuthData = Depends(validate_webapp_data)):
-    description = generate_ai_description(choices)
-    return {"description": description}
+async def generate_description_api(choices: ProfileChoices, background_tasks: BackgroundTasks, auth: AuthData = Depends(validate_webapp_data)):
+    user_id = auth.user.id
+    background_tasks.add_task(generate_and_send_description, user_id, choices, app.state.bot_app)
+    return {"status": "ok", "message": "Ta description est en cours de création. Tu vas la recevoir par message dans un instant !"}
 
 # --- Servir le Frontend ---
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
